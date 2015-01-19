@@ -1,0 +1,16 @@
+{
+    "name": "boxopus/onedrive-php-sdk",
+    "description": "Microsoft OneDrive SDK for PHP. Fork from krizalys/onedrive-php-sdk",
+    "keywords" : [ "boxopus", "onedrive", "cloud", "microsoft" ],
+
+    "license": "MIT",
+
+    "autoload": {
+        "psr-0": { "Box": "lib/" }
+    },
+
+    "require": {
+        "php": ">= 5.3",
+        "ext-curl": "*"
+    }
+}
