@@ -481,18 +481,20 @@ class Client
      *            - The ID of the OneDrive folder into which
      *            to create the OneDrive file, or null to create it in the OneDrive
      *            root folder. Default: null.
+     * @param (null|string) $mimeType
+     *            - The MIME type of the data stream, or null
      *            
      * @return (File) The file created, as File instance referencing to the
      *         OneDrive file created.
      *         @throw (\Exception) Thrown on I/O errors.
      */
-    public function createFile($name, $resource, $parentId = null)
+    public function createFile($name, $resource, $parentId = null, $mimeType = null)
     {
         if (null === $parentId) {
             $parentId = 'me/skydrive';
         }
         
-        $file = $this->apiPut($parentId . '/files/' . urlencode($name), $resource);
+        $file = $this->apiPut($parentId . '/files/' . urlencode($name), $resource, $mimeType);
         return new File($this, $file->id, $file);
     }
 
