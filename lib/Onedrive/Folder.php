@@ -40,14 +40,14 @@ class Folder extends Object
      *
      * @param (string) $name
      *            - The name of the OneDrive file to be created.
-     * @param (string) $content
-     *            - The content of the OneDrive file to be created.
-     *            Default: ''.
+     * @param (resource) $resource
+     *            - The resource of the OneDrive file to be created.
+     * @param (string|null) $mimeType - file mime type
      * @return (File) The file created, as a File instance.
      *         @throw (\Exception) Thrown on I/O errors.
      */
-    public function createFile($name, $content = '')
+    public function createFile($name, $resource, $mimeType = null)
     {
-        return $this->_client->createFile($name, $this->_id, $content);
+        return $this->_client->createFile($name, $resource, $this->_id, $mimeType);
     }
 }
