@@ -238,10 +238,7 @@ class Client
             throw new \Exception('The state\'s redirect URI must be set to call obtainAccessToken()');
         }
         
-        $url = self::TOKEN_URL . '?client_id=' . urlencode($this->_clientId) . '&redirect_uri=' . urlencode($this->_state->redirect_uri) . '&client_secret=' . urlencode($clientSecret) . '&grant_type=authorization_code' . '&code=' . urlencode($code);
-        
         $curl = curl_init();
-        
         curl_setopt_array($curl, [
             // General options.
             CURLOPT_RETURNTRANSFER => true,
@@ -252,7 +249,9 @@ class Client
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_SSL_VERIFYPEER => false,
             
-            CURLOPT_URL => $url
+            CURLOPT_URL => self::TOKEN_URL,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => 'client_id=' . urlencode($this->_clientId) . '&redirect_uri=' . urlencode($this->_state->redirect_uri) . '&client_secret=' . urlencode($clientSecret) . '&grant_type=authorization_code' . '&code=' . urlencode($code)
         ]);
         
         $result = curl_exec($curl);
