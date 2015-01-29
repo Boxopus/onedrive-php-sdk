@@ -58,17 +58,16 @@ abstract class Object
      *            date/time.
      *            Default: array().
      */
-    public function __construct(Client $client, $id, $options = array())
+    public function __construct(Client $client, $id, \stdClass $options = null)
     {
         $this->_client = $client;
         $this->_id = null !== $id ? (string) $id : null;
-        
-        $this->_parentId = isset($options['parent_id']) ? (string) $options->parent_id : null;
-        $this->_name = isset($options['name']) ? (string) $options->name : null;
-        $this->_description = isset($options['description']) ? (string) $options->description : null;
-        $this->_size = isset($options['size']) ? (int) $options->size : null;
-        $this->_createdTime = isset($options['created_time']) ? strtotime($options->created_time) : null;
-        $this->_updatedTime = isset($options['updated_time']) ? strtotime($options->updated_time) : null;
+        $this->_parentId = property_exists($options, 'parent_id') ? (string) $options->parent_id : null;
+        $this->_name = property_exists($options, 'name') ? (string) $options->name : null;
+        $this->_description = property_exists($options, 'description') ? (string) $options->description : null;
+        $this->_size = property_exists($options, 'size') ? (int) $options->size : null;
+        $this->_createdTime = property_exists($options, 'created_time') ? strtotime($options->created_time) : null;
+        $this->_updatedTime = property_exists($options, 'updated_time') ? strtotime($options->updated_time) : null;
     }
 
     /**
