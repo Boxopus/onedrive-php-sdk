@@ -1,6 +1,22 @@
 <?php
 namespace Onedrive;
 
+use Onedrive\Exception\BadRequestException;
+use Onedrive\Exception\InvalidTokenException;
+use Onedrive\Exception\NotAuthorizedTokenException;
+use Onedrive\Exception\NotFoundException;
+use Onedrive\Exception\InvalidMethodException;
+use Onedrive\Exception\RequestTimeoutException;
+use Onedrive\Exception\EditConflictException;
+use Onedrive\Exception\EndpointNotSupportedException;
+use Onedrive\Exception\RequestBodyException;
+use Onedrive\Exception\RequestMediaTypeException;
+use Onedrive\Exception\RequestThrottledException;
+use Onedrive\Exception\RequestLockedException;
+use Onedrive\Exception\ConnectionException;
+use Onedrive\Exception\ServerException;
+use Onedrive\Exception\StorageLimitException;
+
 /*
  * A Client instance allows communication with the OneDrive API and perform
  * operations programmatically.
@@ -16,7 +32,6 @@ namespace Onedrive;
  * For an example implementation, see here:
  * https://github.com/drumaddict/skydrive-api-yii/blob/master/SkyDriveAPI.php
  */
-// TODO: support refresh tokens: http://msdn.microsoft.com/en-us/library/live/hh243647.aspx
 // TODO: pass parameters in POST request body when obtaining the access token
 class Client
 {
@@ -77,7 +92,6 @@ class Client
     private function _processResult($curl)
     {
         $result = curl_exec($curl);
-        
         if (false === $result) {
             throw new \Exception('curl_exec() failed: ' . curl_error($curl));
         }
@@ -85,6 +99,40 @@ class Client
         $info = curl_getinfo($curl);
         
         $this->_httpStatus = isset($info['http_code']) ? (int) $info['http_code'] : null;
+        switch ($this->_httpStatus) {
+            case 400:
+                throw new BadRequestException('Bad request', $this->_httpStatus);
+            case 401:
+                throw new InvalidTokenException('The token was invalid, missing, or expired', $this->_httpStatus);
+            case 403:
+                throw new NotAuthorizedTokenException('The token was not authorized, or the user has not been granted permissions', $this->_httpStatus);
+            case 404:
+                throw new NotFoundException('The resource was not found', $this->_httpStatus);
+            case 405:
+                throw new InvalidMethodException('An invalid method was used', $this->_httpStatus);
+            case 408:
+                throw new RequestTimeoutException('The request timed out' . $this->_httpStatus);
+            case 409:
+                throw new EditConflictException('The request failed, due to an edit conflict', $this->_httpStatus);
+            case 410:
+                throw new EndpointNotSupportedException('The endpoint or scenario is no longer supported', $this->_httpStatus);
+            case 413:
+                throw new RequestBodyException('The request entity body was too large', $this->_httpStatus);
+            case 415:
+                throw new RequestMediaTypeException('The request entity body was an invalid media type', $this->_httpStatus);
+            case 420:
+                throw new RequestThrottledException('The request was throttled. Throttling occurs on a per/app and per/user basis', $this->_httpStatus);
+            case 423:
+                throw new RequestLockedException('The requested resource is locked and can\'t be updated', $this->_httpStatus);
+            case 499:
+                throw new ConnectionException('There is a connection issue with the client', $this->_httpStatus);
+            case 500:
+                throw new ServerException('The server had an unexpected error', $this->_httpStatus);
+            case 503:
+                throw new ServerException('The server is unavailable', $this->_httpStatus);
+            case 507:
+                throw new StorageLimitException('The user doesn\'t have enough available storage', $this->_httpStatus);
+        }
         $this->_contentType = isset($info['content_type']) ? $info['content_type'] : null;
         
         // Parse nothing but JSON.
@@ -261,25 +309,59 @@ class Client
             throw new \Exception('json_decode() failed');
         }
         
-        $this->_state->redirect_uri = null;
         $this->_state->token = new \stdClass();
         $this->_state->token->obtained = time();
-        $this->_state->token->data = $decoded;
+        $this->_state->token->data = (object) $decoded;
     }
 
     /**
-     * Renews the access token from OAuth.
-     * This token is valid for one hour.
+     * refreshAccessToken
+     *
+     * Gets a new access token when the latter has expired or it's unavailable in session.
+     * Refresh token could also be stored in database.Valid for one year.
+     * Returns an array:
+     * ([token_type],[expires_in],[scope],[access_token],[refresh_token],[authentication_token],[created])
+     * See OAuth2 http://msdn.microsoft.com/en-us/library/live/hh243647.aspx
+     *
+     * @return array $access_token
+     *        
      */
-    /*public function renewAccessToken($clientSecret, $redirectUri) {
-     $url = self::TOKEN_URL
-     . '?client_id=' . $this->_clientId
-     . '&redirect_uri=' . (string) $redirectUri
-     . '&client_secret=' . (string) $clientSecret
-     . '&grant_type=' . 'refresh_token'
-     . '&code=' . (string) $code;
-     }*/
-    
+    public function refreshAccessToken($clientSecret)
+    {
+        $parameters = [
+            'client_id' => $this->_clientId,
+            'redirect_uri' => $this->_state->redirect_uri,
+            'client_secret' => $clientSecret,
+            'grant_type' => 'refresh_token',
+            'refresh_token' => $this->_state->token->data->refresh_token
+        ];
+        
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            // General options.
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_AUTOREFERER => true,
+            
+            // SSL options.
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_SSL_VERIFYPEER => false,
+            
+            CURLOPT_URL => self::TOKEN_URL . '?' . http_build_query($parameters)
+        ]);
+        
+        $result = curl_exec($curl);
+        $decoded = json_decode($result);
+        
+        if (null === $decoded) {
+            throw new \Exception('json_decode() failed');
+        }
+        
+        $this->_state->token = new \stdClass();
+        $this->_state->token->obtained = time();
+        $this->_state->token->data = (object) $decoded;
+    }
+
     /**
      * Performs a call to the OneDrive API using the GET method.
      *
@@ -515,10 +597,10 @@ class Client
             'folder',
             'album'
         ])) {
-            return new Folder($this, $objectId, $result);
+            return new Folder($this, $result->id, $result);
         }
         
-        return new File($this, $objectId, $result);
+        return new File($this, $result->id, $result);
     }
 
     /**
