@@ -121,7 +121,7 @@ class Client
         $this->_clientId = isset($options['client_id']) ? (string) $options['client_id'] : null;
         
         if (isset($options['state'])) {
-            $this->_state = $options['state'];
+            $this->_state = (object) $options['state'];
         } else {
             $this->_state = new \stdClass();
             $this->_state->redirect_uri = null;
